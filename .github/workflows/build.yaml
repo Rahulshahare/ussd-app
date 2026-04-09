@@ -2,10 +2,10 @@ name: Direct Android Build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master" ]  # Changed from "master" to "main"
   pull_request:
-    branches: [ "master" ]
-
+    branches: [ "master" ]  # Changed from "master" to "main"
+  workflow_dispatch:  # Add this to manually trigger from GitHub UI
 
 jobs:
   build:
