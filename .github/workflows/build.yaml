@@ -25,12 +25,11 @@ jobs:
       
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        
       
       - name: Install dependencies
         run: npm ci
       
-      - name: Install Metro dependencies (fix)
+      - name: Install Metro dependencies
         run: |
           npm install --save-dev @react-native/metro-config
           npm install @expo/metro-config
@@ -43,18 +42,24 @@ jobs:
       
       - name: Bundle JavaScript with Expo
         run: |
-          npx expo export --platform android --dev false --output-dir dist
-          # Copy the bundled file to the correct location
-          cp dist/index.android.bundle android/app/src/main/assets/index.android.bundle 2>/dev/null || \
-          cp dist/index.js android/app/src/main/assets/index.android.bundle 2>/dev/null || \
-          echo "Bundle file not found, checking dist contents..." && ls -la dist/
+          npx expo export --platform android --dev=false --output-dir dist
+          # Copy the bundle to the correct location
+          if [ -f "dist/index.android.bundle" ]; then
+            cp dist/index.android.bundle android/app/src/main/assets/index.android.bundle
+          elif [ -f "dist/index.js" ]; then
+            cp dist/index.js android/app/src/main/assets/index.android.bundle
+          else
+            echo "Error: Bundle file not found in dist/"
+            ls -la dist/
+            exit 1
+          fi
       
-      - name: Verify bundle was created
+      - name: Verify bundle
         run: |
           if [ -f "android/app/src/main/assets/index.android.bundle" ]; then
-            echo "✅ Bundle created: $(ls -lh android/app/src/main/assets/index.android.bundle)"
+            echo "✅ Bundle size: $(ls -lh android/app/src/main/assets/index.android.bundle | awk '{print $5}')"
           else
-            echo "❌ Bundle missing!"
+            echo "❌ Bundle not created"
             exit 1
           fi
       
@@ -62,7 +67,16 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
+      
+      - name: Verify APK
+        run: |
+          if [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "✅ APK size: $(ls -lh android/app/build/outputs/apk/debug/app-debug.apk | awk '{print $5}')"
+          else
+            echo "❌ APK not created"
+            exit 1
+          fi
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
