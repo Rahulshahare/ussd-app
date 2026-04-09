@@ -2,10 +2,8 @@ name: Direct Android Build
 
 on:
   push:
-    branches: [ "master" ]  # Changed from "master" to "main"
-  pull_request:
-    branches: [ "master" ]  # Changed from "master" to "main"
-  workflow_dispatch:  # Add this to manually trigger from GitHub UI
+    branches: [ "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,8 +14,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
-          cache: npm
+          node-version: '18'
+          cache: 'npm'
       
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -27,18 +25,38 @@ jobs:
       
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        
       
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       
-      - name: Generate native code
-        run: npx expo prebuild
-
-      # 🔑 CRITICAL: Bundle JavaScript before building
-      - name: Bundle JavaScript
+      - name: Install Metro dependencies (fix)
         run: |
-          mkdir -p android/app/src/main/assets
-          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+          npm install --save-dev @react-native/metro-config
+          npm install @expo/metro-config
+      
+      - name: Generate native Android files
+        run: npx expo prebuild --clean
+      
+      - name: Create assets directory
+        run: mkdir -p android/app/src/main/assets
+      
+      - name: Bundle JavaScript with Expo
+        run: |
+          npx expo export --platform android --dev false --output-dir dist
+          # Copy the bundled file to the correct location
+          cp dist/index.android.bundle android/app/src/main/assets/index.android.bundle 2>/dev/null || \
+          cp dist/index.js android/app/src/main/assets/index.android.bundle 2>/dev/null || \
+          echo "Bundle file not found, checking dist contents..." && ls -la dist/
+      
+      - name: Verify bundle was created
+        run: |
+          if [ -f "android/app/src/main/assets/index.android.bundle" ]; then
+            echo "✅ Bundle created: $(ls -lh android/app/src/main/assets/index.android.bundle)"
+          else
+            echo "❌ Bundle missing!"
+            exit 1
+          fi
       
       - name: Build APK with Gradle
         run: |
@@ -51,3 +69,4 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
