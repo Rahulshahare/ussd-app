@@ -1,11 +1,9 @@
-name: Local Android Build
+name: Direct Android Build
 
-on:
-  push:
-    branches: [master]
+on: [push]
 
 jobs:
-  local-build:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,13 +25,17 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Run EAS local build
+      - name: Generate native code
+        run: npx expo prebuild
+      
+      - name: Build APK with Gradle
         run: |
-          npm install -g eas-cli
-          eas build --platform android --profile development --local --output=app-build.apk
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app-build.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
