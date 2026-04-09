@@ -1,6 +1,11 @@
 name: Direct Android Build
 
-on: [push]
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
 
 jobs:
   build:
