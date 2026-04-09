@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 20          # ← Changed from 18 to 20 (required for Expo SDK 54/55)
           cache: 'npm'
       
       - name: Setup Java
@@ -29,10 +29,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Install Metro dependencies
-        run: |
-          npm install --save-dev @react-native/metro-config
-          npm install @expo/metro-config
+      # Removed the manual Metro config installs — they often cause conflicts
+      # Let Expo handle its own @expo/metro-config
       
       - name: Generate native Android files
         run: npx expo prebuild --clean
@@ -43,23 +41,35 @@ jobs:
       - name: Bundle JavaScript with Expo
         run: |
           npx expo export --platform android --dev=false --output-dir dist
-          # Copy the bundle to the correct location
-          if [ -f "dist/index.android.bundle" ]; then
+          
+          # Improved bundle copy logic (Expo export structure can vary)
+          mkdir -p android/app/src/main/assets
+          
+          if ls dist/bundles/android-*.js 1> /dev/null 2>&1; then
+            cp dist/bundles/android-*.js android/app/src/main/assets/index.android.bundle
+            echo "✅ Copied bundle from dist/bundles/"
+          elif [ -f "dist/index.android.bundle" ]; then
             cp dist/index.android.bundle android/app/src/main/assets/index.android.bundle
+            echo "✅ Copied dist/index.android.bundle"
           elif [ -f "dist/index.js" ]; then
             cp dist/index.js android/app/src/main/assets/index.android.bundle
+            echo "✅ Copied dist/index.js"
           else
-            echo "Error: Bundle file not found in dist/"
-            ls -la dist/
+            echo "❌ Error: Bundle file not found in dist/"
+            echo "Contents of dist/:"
+            ls -la dist/ || true
+            echo "Contents of dist/bundles/ (if exists):"
+            ls -la dist/bundles/ 2>/dev/null || true
             exit 1
           fi
       
       - name: Verify bundle
         run: |
           if [ -f "android/app/src/main/assets/index.android.bundle" ]; then
-            echo "✅ Bundle size: $(ls -lh android/app/src/main/assets/index.android.bundle | awk '{print $5}')"
+            echo "✅ Bundle created successfully"
+            echo "Bundle size: $(ls -lh android/app/src/main/assets/index.android.bundle | awk '{print $5}')"
           else
-            echo "❌ Bundle not created"
+            echo "❌ Bundle not found after copy step"
             exit 1
           fi
       
@@ -72,9 +82,11 @@ jobs:
       - name: Verify APK
         run: |
           if [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
-            echo "✅ APK size: $(ls -lh android/app/build/outputs/apk/debug/app-debug.apk | awk '{print $5}')"
+            echo "✅ APK built successfully"
+            echo "APK size: $(ls -lh android/app/build/outputs/apk/debug/app-debug.apk | awk '{print $5}')"
           else
             echo "❌ APK not created"
+            ls -la android/app/build/outputs/apk/debug/ || true
             exit 1
           fi
       
