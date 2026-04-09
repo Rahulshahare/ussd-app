@@ -32,6 +32,12 @@ jobs:
       
       - name: Generate native code
         run: npx expo prebuild
+
+      # 🔑 CRITICAL: Bundle JavaScript before building
+      - name: Bundle JavaScript
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
       
       - name: Build APK with Gradle
         run: |
